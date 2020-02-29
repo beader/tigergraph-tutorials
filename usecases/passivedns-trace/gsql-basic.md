@@ -1,5 +1,7 @@
 # 简单上手GSQL
 
+### Learning by doing
+
 TigerGraph 使用 GSQL 作为其图查询语言，GSQL 语言风格既有声明式\( declarative \)语言的特点，又有命令式 \( imperative \) 的特点，可以很方便发起并控制图遍历的过程。我个人认为 GSQL 是目前最棒的图查询语言，但是对于许多人来说，官网文档学习起来可能不是那么轻松，这也是我写这个教程的主要目的之一。
 
 在左侧导航栏中选择 **Write Queries**，点击 + 可以创建一个新的查询脚本。在编写完脚本之后，点击顶部工具栏的 **Save query draft**, 如果语法正确无误，则可以点击 **Install query**，脚本编译成功之后，可以点击工具栏中的 **Run query** 执行该脚本。
@@ -339,4 +341,6 @@ searchme.com
 {% hint style="info" %}
 为何这里需要一个累加器的概念，累加器和其他编程语言里的变量有何区别？因为 TigerGraph 的遍历和累加，都是并行执行的。譬如上面的例子，takeyourdata@126.com 会被 ACCUM 2次，如果用“普通”的变量来存储数据，在并行环境下就会遭遇 Race Condition。
 {% endhint %}
+
+
 
