@@ -1,6 +1,6 @@
 # 创建 Schema
 
-观察本次案例将分析的数据，账号与账号之间有邀请、兑换关系，在发生邀请或者兑换事件时，日志中还记录了设备号\(IMEI\)，IP地址等信息，这些信息都可以构成图中的节点和边。标题中提到的 Property Graph，特指图模型中有多种类型的节点和边，在许多地方，也会被称作**异质图 \(Heterogeneous Graph\)**。我找了很久，并没有找到一个较为统一的说法，总而言之，这次案例的 Schema 中，我们会把账号，IP，设备号等信息，都体现在节点上。
+观察本次案例将分析的数据，账号与账号之间有邀请、兑换关系，在发生邀请或者兑换事件时，日志中还记录了设备号\(IMEI\)，IP地址等信息，这些信息都可以构成图中的节点和边。在最新的关于图神经网络的一些 Paper 中，它被称作**异质图 \(Heterogeneous Graph\)**，但在维基百科中，**同质图 \(Homogeneous Graph\)** 与**异质图**却有另外但定义。我找了很久，并没有找到一个较为统一的说法，总而言之，这次案例所说的**异质图模型**，指的是在 Graph 中存在不同类型的节点。在 Schema 中，我们会把账号，IP，设备号等信息，都体现在节点上。
 
 {% hint style="info" %}
 很多时候，场景不同，我们可以会采取不一样的 Schema。譬如 a 向 b 转账 10 元钱，就有如下两种可能的设计方式:
@@ -21,10 +21,8 @@ Schema 如下图:
 
 本次案例使用 gsql 脚本来创建 Schema
 
-{% code title="create\_schema.gsql" %}
+{% code title="create\_graph.gsql" %}
 ```sql
-DROP ALL
-
 CREATE VERTEX Account (PRIMARY_ID id STRING, phone STRING, reg_time INT, reg_date STRING) WITH STATS="outdegree_by_edgetype"
 CREATE VERTEX IMEI (PRIMARY_ID id STRING, imei STRING) WITH STATS="outdegree_by_edgetype"
 CREATE VERTEX IP (PRIMARY_ID id STRING, ip STRING) WITH STATS="outdegree_by_edgetype"
@@ -46,17 +44,20 @@ CREATE GRAPH MyGraph (*)
 ```
 {% endcode %}
 
-`DROP ALL` 将删除图数据库中所有的数据，DDL与 Query，让数据库恢复初始状态。
+使用 `CREATE VERTEX` 来创建节点，`WITH STATS = "outdegree_by_edgetype"` 的作用是让 TigerGraph 自动提前统计每个节点各种类型的边的数量，如果后续的查询语句会大量用到节点的 degree 信息，开启这个选项可以使查询的速度加快。
 
-使用 CREATE VERTEX 来创建节点，`WITH STATS = "outdegree_by_edgetype"` 的作用是让 TigerGraph 自动提前统计每个节点各种类型的边的数量，如果后续的查询语句会大量用到节点的 degree 信息，开启这个选项可以使查询的速度加快。
+使用 `CREATE DIRECTED | UNDIRECTED EDGE` 来创建边，需要指定边的左右两边的点类型。如果需要增加边属性，可以写在 FROM, TO 之后。
 
-使用 CREATE DIRECTED \| UNDIRECTED EDGE 来创建边，需要指定边的左右两边的点类型。如果需要增加边属性，可以写在 FROM, TO 之后。
-
-使用 CREATE GRAPH MyGraph \(\*\) 会将当前所有类型的点和边都包含进一张图中，该图成为 MyGraph
+使用 `CREATE GRAPH MyGraph (*)` 会将当前所有类型的点和边都包含进一张图中，该图成为 MyGraph
 
 {% hint style="info" %}
 degree \(度\) 是图分析中一个重要的统计量，一个点的 degree 即从该点出发的一度邻居数量。因为图中存在多重不同的边，因此可以按类别分别统计 degree。
 {% endhint %}
 
+最后通过 GSQL 完成 Schema 创建:
 
+```bash
+$ gsql "DROP ALL" # 清除之前图数据库中所有信息，还原初始状态
+$ gsql create_graph.gsql
+```
 
