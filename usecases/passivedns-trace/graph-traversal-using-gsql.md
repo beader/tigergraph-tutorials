@@ -60,7 +60,7 @@ CREATE QUERY k_step_neighbors_v2(VERTEX d, int k_step, int max_degree) FOR GRAPH
 {% endtab %}
 
 {% tab title="执行参数" %}
-![](../../.gitbook/assets/image%20%282%29.png)
+![](../../.gitbook/assets/image%20%281%29.png)
 {% endtab %}
 
 {% tab title="结果" %}
