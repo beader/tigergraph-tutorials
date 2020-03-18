@@ -222,6 +222,7 @@ END;
 
 {% tabs %}
 {% tab title="代码" %}
+{% code title="comps\_nonself\_order\_ratio\_rank.gsql" %}
 ```sql
 CREATE QUERY comps_nonself_order_ratio_rank(INT min_num_orders, INT k) FOR GRAPH MyGraph {
   TYPEDEF TUPLE<VERTEX ancestor,
@@ -302,6 +303,7 @@ CREATE QUERY comps_nonself_order_ratio_rank(INT min_num_orders, INT k) FOR GRAPH
   END;
 }
 ```
+{% endcode %}
 {% endtab %}
 
 {% tab title="执行结果" %}
@@ -382,5 +384,333 @@ CREATE QUERY comps_nonself_order_ratio_rank(INT min_num_orders, INT k) FOR GRAPH
 
 ### CC中存在大量设备共用
 
+![&#x5171;&#x7528;&#x8BBE;&#x5907;](../../.gitbook/assets/screen-shot-2020-03-18-at-3.00.09-pm.png)
+
+{% tabs %}
+{% tab title="代码" %}
+{% code title="comps\_share\_device\_rate\_rank.gsql" %}
+```sql
+CREATE QUERY comps_share_device_rate_rank(INT min_comp_size, INT k) FOR GRAPH MyGraph {
+  TYPEDEF TUPLE<VERTEX ancestor, FLOAT share_device_rate, INT num_accounts> tp_comp_sdr;
+  MaxAccum<VERTEX> @ancestor;
+  GroupByAccum<VERTEX ancestor, VERTEX imei, SetAccum<VERTEX> accounts> @@accounts_grby_anc_imei;
+  GroupByAccum<VERTEX ancestor, AvgAccum share_device_rate, SetAccum<VERTEX> accounts> @@comps_counter;
+  HeapAccum<tp_comp_sdr>(k, share_device_rate DESC) @@comps_stats;
+  all_accounts = {Account.*};
+  
+  /*
+  寻找所有的祖先
+  */
+  ancestors =
+    SELECT t
+    FROM all_accounts:t
+    WHERE t.outdegree("invite") > 0 AND t.outdegree("reverse_invite") == 0
+    ACCUM t.@ancestor = t
+  ;
+
+  /*
+  将祖先信息传播到所有节点
+  */
+  children = ancestors;
+  WHILE (children.size() > 0) DO
+    _t0 =
+      SELECT t
+      FROM children:s -(use_imei:e)-> IMEI:t
+      ACCUM @@accounts_grby_anc_imei += (s.@ancestor, t -> s)
+    ;
+
+    children =
+      SELECT t
+      FROM children:s -(invite:e)-> Account:t
+      ACCUM t.@ancestor = s.@ancestor
+    ;
+  END;
+  
+  FOREACH (ancestor, imei, accounts) IN @@accounts_grby_anc_imei DO
+    @@comps_counter += (ancestor -> accounts.size(), accounts);
+  END;
+
+  FOREACH (ancestor, share_device_rate, accounts) IN @@comps_counter DO
+    IF accounts.size() >= min_comp_size THEN
+      @@comps_stats += tp_comp_sdr(ancestor, share_device_rate, accounts.size());
+    END;
+  END;
+
+  FOREACH c IN @@comps_stats DO
+    PRINT c.ancestor AS ancestor,
+          c.share_device_rate AS share_device_rate,
+          c.num_accounts As num_accounts
+    ;
+  END;
+}
+```
+{% endcode %}
+{% endtab %}
+
+{% tab title="执行结果" %}
+以 `min_comp_size=30` ，`k=10` 作为参数，执行脚本。
+
+```javascript
+[
+  {
+    "ancestor": "1879",
+    "share_device_rate": 21,
+    "num_accounts": 42
+  },
+  {
+    "ancestor": "5283",
+    "share_device_rate": 19.6,
+    "num_accounts": 98
+  },
+  {
+    "ancestor": "8017",
+    "share_device_rate": 18,
+    "num_accounts": 36
+  },
+  {
+    "ancestor": "6606",
+    "share_device_rate": 4.625,
+    "num_accounts": 37
+  },
+  {
+    "ancestor": "7753",
+    "share_device_rate": 4.04762,
+    "num_accounts": 85
+  },
+  {
+    "ancestor": "361",
+    "share_device_rate": 3.57143,
+    "num_accounts": 75
+  },
+  {
+    "ancestor": "3236",
+    "share_device_rate": 3.33333,
+    "num_accounts": 60
+  },
+  {
+    "ancestor": "2090",
+    "share_device_rate": 3.09091,
+    "num_accounts": 34
+  },
+  {
+    "ancestor": "6597",
+    "share_device_rate": 2.90909,
+    "num_accounts": 32
+  },
+  {
+    "ancestor": "8660",
+    "share_device_rate": 2.05556,
+    "num_accounts": 37
+  }
+]
+```
+{% endtab %}
+{% endtabs %}
+
+这个语句不涉及到新的语法。大体思路是，用两个 GroupByAccum，`@@accounts_grby_anc_imei` 的 key 是 \(ancestor, imei\)，统计每个 CC ，每个 imei 下对应的账号数。然后在用 `@@comps_counter` 来统计每个  CC 下平均一个 IMEI 对应对少个账号。
+
+下图展示来一个**高设备共用率**的 CC:
+
+![&#x9AD8;&#x8BBE;&#x5907;&#x5171;&#x7528;&#x7387;](../../.gitbook/assets/screen-shot-2020-03-18-at-3.47.29-pm.png)
+
+可以看出，这个 CC 中大部分账号都共用了一台手机
+
 ### CC的行为疑似机器操作
+
+这里说的行为疑似机器，想表达的是，CC的行为，看上去像是一个预谋好的，有策略性的，由脚本控制的活动。
+
+我们之前不断说过，黑产与反黑产的对抗，本质就是成本与效益的博弈，黑产团伙使用的资源都是有成本的，只有成本低于收益的时候，才有利可图。如何更加有效的利用资源，是黑产团伙的核心技术。
+
+假设某优惠活动的规则如下，每邀请 3 个人，则可以换取一份奖励，某个黑产团伙一共拥有 10 个手机号。那么对于这次营销活动，他们有以下这 3 种薅羊毛策略。
+
+![&#x4E09;&#x79CD;&#x4E0D;&#x540C;&#x7684;&#x8585;&#x7F8A;&#x6BDB;&#x7B56;&#x7565;](../../.gitbook/assets/screen-shot-2020-03-18-at-4.12.23-pm.png)
+
+策略 1 有浪费，策略 2、3 效率相同。但是策略 2 容易暴露，因此多数黑产会使用策略 3。
+
+因此黑产 CC 在邀请关系图上，会体现出如下特征:
+
+1. 图的深度特别大，这个前面已经提到过了
+2. CC 中每个**邀请者邀请的人数非常均匀**
+
+一个 CC 中，有邀请过别人的账号，我们称之为**邀请者**，如果营销活动的规则是邀请10个人可以兑换一份奖品，那么黑产 CC 中，每个邀请者一定会不多不少刚刚好邀请 10 个人，这样才不会造成资源浪费。
+
+那么如何来衡量一个 CC 中，**邀请者邀请人数**的均匀程度呢？统计我们常常用**基尼系数 \( Gini Coefficient \)** 来衡量均匀程度。
+
+基尼系数为洛伦兹曲线与45度直线构成的区域的面积占三角形面积的比例
+
+![&#x6D1B;&#x4F26;&#x5179;&#x66F2;&#x7EBF;](../../.gitbook/assets/screen-shot-2020-03-18-at-4.26.58-pm.png)
+
+过去，基尼系数常常被用来衡量一个国家的贫富分化程度。我们将一个国家所有人的收入从低到高排序，洛伦兹曲线上的点，代表收入最低的 k% 的人口拥有 n% 的社会总财富。这个曲线越陡峭，说明**大多数人掌握社会的少部分财富**，贫富分化严重，基尼系数很大。
+
+在黑产 CC 识别中，我们运用类似的思想，对一个 CC 中所有邀请者邀请的人数构成的数列，求基尼系数。黑产团伙的基尼系数往往很低，接近于 0。
+
+基尼系数的一种计算方法:
+
+$$
+G = \frac{\sum_{i=1}^{n}\sum_{j=1}^{n}{|x_{i}-x_{j}|}}{2n\sum_{i=1}^{n}{x_i}}
+$$
+
+{% tabs %}
+{% tab title="代码" %}
+{% code title="comps\_gini\_rank.gsql" %}
+```sql
+CREATE QUERY comps_gini_rank(INT k=100, INT min_comp_size=30) FOR GRAPH MyGraph {
+  TYPEDEF TUPLE<VERTEX ancestor,
+                INT comp_depth,
+                INT comp_size,
+                DOUBLE gini> tp_comp_stat;
+
+  MaxAccum<VERTEX> @ancestor;
+
+  GroupByAccum<VERTEX ancestor, VERTEX sendr,
+               SumAccum<INT> num_recvrs> @@num_recvrs_grby_ancestor_sendr;
+  MapAccum<VERTEX, MaxAccum<INT>> @@comp_depth;
+  MapAccum<VERTEX, SumAccum<INT>> @@comp_size;
+  MapAccum<VERTEX, BagAccum<INT>> @@num_recvrs_arr;
+
+  HeapAccum<tp_comp_stat>(k, gini) @@comp_stats;
+
+  INT depth = 1;
+  INT comp_depth = 0;
+  INT sum_diffs;
+  INT sum_arr;
+  DOUBLE gini;
+
+  all_accounts = {Account.*};
+  all_orders = {BonusOrder.*};
+
+  ancestors =
+    SELECT t
+    FROM all_accounts:t
+    WHERE t.outdegree("invite") > 0 AND t.outdegree("reverse_invite") == 0
+    ACCUM t.@ancestor = t,
+          @@comp_size += (t -> 1)
+  ;
+
+  children = ancestors;
+  WHILE (children.size() > 0) DO
+    children =
+      SELECT t
+      FROM children:s -(invite:e)-> Account:t
+      ACCUM t.@ancestor += s.@ancestor,
+            @@comp_depth += (s.@ancestor -> depth),
+            @@comp_size += (s.@ancestor -> 1),
+            @@num_recvrs_grby_ancestor_sendr += (s.@ancestor, s -> 1)
+    ;
+    depth = depth + 1;
+  END;
+
+  FOREACH (ancestor, sendr, num_recvrs) IN @@num_recvrs_grby_ancestor_sendr DO
+    @@num_recvrs_arr += (ancestor -> num_recvrs);
+  END;
+
+  FOREACH (ancestor, comp_size) IN @@comp_size DO
+    sum_diffs = 0;
+    sum_arr = 0;
+    gini = 0;
+    FOREACH x1 IN @@num_recvrs_arr.get(ancestor) DO
+      sum_arr = sum_arr + x1;
+      FOREACH x2 IN @@num_recvrs_arr.get(ancestor) DO
+        sum_diffs = sum_diffs + abs(x1 - x2);
+      END;
+    END;
+    gini = 0.5 * sum_diffs / (@@num_recvrs_arr.get(ancestor).size() * sum_arr);
+
+    IF comp_size >= min_comp_size THEN
+      @@comp_stats += tp_comp_stat(
+        ancestor,
+        @@comp_depth.get(ancestor),
+        comp_size,
+        gini
+      );
+    END;
+  END;
+
+  FOREACH comp_stat IN @@comp_stats DO
+    PRINT comp_stat.ancestor AS ancestor,
+          comp_stat.comp_depth AS comp_depth,
+          comp_stat.comp_size AS comp_size,
+          comp_stat.gini AS gini
+    ;
+  END;
+}
+```
+{% endcode %}
+{% endtab %}
+
+{% tab title="执行结果" %}
+以 `min_comp_size=30` ，`k=10` 执行该脚本
+
+```javascript
+[
+  {
+    "ancestor": "8262",
+    "comp_depth": 5,
+    "comp_size": 71,
+    "gini": 0
+  },
+  {
+    "ancestor": "8433",
+    "comp_depth": 2,
+    "comp_size": 31,
+    "gini": 0
+  },
+  {
+    "ancestor": "5628",
+    "comp_depth": 3,
+    "comp_size": 31,
+    "gini": 0
+  },
+  {
+    "ancestor": "8440",
+    "comp_depth": 9,
+    "comp_size": 91,
+    "gini": 0
+  },
+  {
+    "ancestor": "11584",
+    "comp_depth": 2,
+    "comp_size": 31,
+    "gini": 0
+  },
+  {
+    "ancestor": "4231",
+    "comp_depth": 5,
+    "comp_size": 51,
+    "gini": 0
+  },
+  {
+    "ancestor": "8478",
+    "comp_depth": 2,
+    "comp_size": 31,
+    "gini": 0
+  },
+  {
+    "ancestor": "6678",
+    "comp_depth": 3,
+    "comp_size": 51,
+    "gini": 0
+  },
+  {
+    "ancestor": "15928",
+    "comp_depth": 4,
+    "comp_size": 41,
+    "gini": 0
+  },
+  {
+    "ancestor": "11686",
+    "comp_depth": 4,
+    "comp_size": 41,
+    "gini": 0
+  }
+]
+```
+{% endtab %}
+{% endtabs %}
+
+这个查询语句除了麻烦一点，和之前的相比，并不算太复杂。先统计每个 CC 下，每个邀请者，邀请的人数。然后对每个 CC 进行统计，计算基尼系数。除此之外，该语句还顺便统计了一下 CC 对深度和大小。
+
+![&#x4E0D;&#x540C;&#x57FA;&#x6570;&#x7684; CC](../../.gitbook/assets/screen-shot-2020-03-18-at-5.18.07-pm.png)
+
+上图分别展示了不同基尼系数的 2 个 CC 的邀请关系图。基尼系数更小的 CC，更有可能是黑产行为。
 
