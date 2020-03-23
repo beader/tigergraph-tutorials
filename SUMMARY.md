@@ -25,7 +25,7 @@
   * [结果分析](usecases/invite-graph-econnoisseur-detection/performance.md)
 * [基于共现关系的羊毛党识别](usecases/cocontext-graph-econnoisseur-detection/README.md)
   * [背景介绍](usecases/cocontext-graph-econnoisseur-detection/background.md)
-  * [创建 Schema](usecases/cocontext-graph-econnoisseur-detection/chuang-jian-schema.md)
+  * [创建 Schema](usecases/cocontext-graph-econnoisseur-detection/schema.md)
   * [数据批加载](usecases/cocontext-graph-econnoisseur-detection/data-loading-jobs-batch.md)
   * [从 Kafka 中实时加载数据](usecases/cocontext-graph-econnoisseur-detection/data-loading-jobs-kafka.md)
 
