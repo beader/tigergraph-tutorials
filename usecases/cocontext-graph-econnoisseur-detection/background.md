@@ -44,7 +44,7 @@
 2. 在同一个 IP 地址下的不同用户之间的**关系强弱不容易衡量**
 3. 写 GSQL 进行节点遍历的时候，比较繁琐，**影响查询效率**
 
-另一个思路是，我们让图中只保留一种类型的节点，比如**账号**，将他们同时出现过的上下文信息，体现在边上。
+另一个思路是，我们让图中只保留一种类型的节点，比如**账号**，将他们同时出现 \( **共现** \) 过的上下文信息，体现在边上。
 
 ![&#x56FE;&#x4E2D;&#x53EA;&#x6709;&#x4E00;&#x79CD;&#x7C7B;&#x578B;&#x8282;&#x70B9;](../../.gitbook/assets/homogeneous-graph.png)
 
@@ -54,13 +54,63 @@
 2. 账户与账户之间如果存在多重关系，**方便进行融合**
 3. 写 GSQL 进行节点遍历，比较方便，**效率也较高**
 
-### 生成 Co-Context  边的方法
+### Co-Context  边的扩展
 
 想象一下这么一个场景，有一个 IP 地址，今天上午 9:00 用户 `u1` 使用过，今天下午 15:01 用户 `u2` `u3` `u4` 在同一分钟内使用过，那么 `u2` 与 `u3` `u4` 的关系肯定要比 `u2` 与 `u1` 的关系来的紧密。
 
-因此，针对这种亲密程度和时间相关的边，我们不妨为其添加一个时间上的约束。即，在一个**时间窗口**内，使用了**相同上下文的两个实体之间**，建立一条边。可以将这种边称之为:
+因此，针对这种亲密程度和时间相关的边，我们不妨为其添加一个时间上的约束。即，在一个**时间窗口**内，**出现在相同上下文的两个实体之间**，建立一条边。可以将这种边称之为:
 
-> **Time Windowed Co-Context Edge**
+> **Time Windowed Co-Context Edge 带时间窗口的共现关系边**
+>
+> 任意两个节点，如果在一个时间窗口中，使用过相同的上下文，那么他们之间有一条边
 
+![Time Windowed Co-Context Edge](../../.gitbook/assets/screen-shot-2020-03-24-at-3.07.41-pm.png)
 
+这是一种比较一般化的建边策略，对业务场景对假设较小。对比前面一个案例中的邀请关系，邀请关系是一种**显性关联 \( explicit relationship \)**，共上下文关系则是一种**隐性关联 \( implicit relationship \)**。
+
+根据实际业务情况，我们可以很容易将共现关系边进行拓展。例如:
+
+![](../../.gitbook/assets/screen-shot-2020-03-24-at-3.08.20-pm.png)
+
+当 context 较严格的时候，我们可以放松 time window ，当  context 较宽松当时候，我们可以收紧 time window。比如 IP 地址是一个较宽松的 context，因为只要断线重连，通常会被分配一个新的 IP，此时时间窗口就要定小一些，比如 1 分钟。device id 是一个比较稳定的 context，因为正常用户不大可能在短期用同一台手机切换多个账号，此时时间窗口可以定大一些，比如 1 天。
+
+### 从风控事件到 Co-Context Graph
+
+以某 1 个 IP 地址作为 context 为例，通过滑动时间窗口的方式，为同一时间窗口内的账号，两两之间构建边
+
+![Event Timeline](../../.gitbook/assets/screen-shot-2020-03-24-at-3.59.58-pm.png)
+
+由上一步抽取的边，可以构建出 Co-Context Graph
+
+![Co-Context Graph](../../.gitbook/assets/co-context-graph.png)
+
+这里顺带对比一下以前的做法，即图中包含 Account - IP 关系的方法，我们称之为 Property Graph
+
+![Property Graph](../../.gitbook/assets/property-graph.png)
+
+可以发现，在 Co-Context Graph 中，节点之间的关系是很容易判断的，a 与 b 的关系，要比 a 与 d 的关系要紧密，在之前的 Property Graph 之中，则无法区别这样的关系强弱。
+
+将不同 IP 地址下的账户关联起来，构建出完整的图
+
+![](../../.gitbook/assets/co-context-graph-vs-property-graph.png)
+
+在 Co-Context Graph 中，点与点之间与**时间差**作为距离。在上面的例子中，因为 D、F 与之前使用相同 IP 的账号，时间间隔过大，他们不会与前面的账号形成关系。这样可以避免形成超大的 Connected Component，可以很大程度降低误报率。
+
+### Co-Context Graph 在工程中的简化
+
+前面提到了，Co-Context 的建边条件是，任意两个节点，在同一个时间窗口内出现在同一上下文中，则他们之间有一条边。这相当于在同一个上下文的同一个时间窗口内的所有节点，两两之间建立一条边。在实际工程化的时候，会给存储、计算带来不小的压力，这里我们可以将完整的 Co-Context Graph 做一定程度的简化:
+
+![Simplify Co-Context Graph](../../.gitbook/assets/simplify-co-context-graph.png)
+
+即在同一个时间窗口内的账户，不再两两之间建边，而是相邻账号之间建边。虽然 Graph 受到了很大程度的简化，但其实必要的**距离信息**依然被保留了下来。
+
+### Co-Context Graph 中边的融合
+
+前面以 IP 作为 context 为例，介绍了 Co-Context Graph 的生成方法。实际上可以用来生成 Co-Context Graph 的 context 选择有很多，具体可以根据不同业务需求去定制。所以从广义上讲，Co-Context Graph 中边的关系不一定只有一种，不过在图中，账号与账号之间是直接连接的，因此可以很方便的将账号之间的多重关系做进一步融合
+
+![Fusion of multiple relations](../../.gitbook/assets/fuse-multiple-relationships.png)
+
+关于多重边的融合问题，因为它的训练不发生在图数据库中，因此这里不做过多介绍，感兴趣的朋友可以去搜索一下关于图神经网络相关的材料。
+
+本次案例只考虑 context 为 IP 地址的情况。
 
