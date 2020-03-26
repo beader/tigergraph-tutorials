@@ -117,34 +117,23 @@ GSQL-Dev > CREATE DATA_SOURCE KAFKA k1 = "/path/to/kafka.config" FOR GRAPH MyGra
 ```bash
 GSQL-Dev > USE GRAPH MyGraph
 Using graph 'MyGraph'
-GSQL-Dev > RUN LOADING JOB load_co_context_edges_json USING jsonfile="$k1:/home/tigergraph/kafka_co_context_edges_topic_partition.conf"
-Try to list topic metadata from Kafka broker '192.168.5.60:9092', timeout: 3 sec ...
+GSQL-Dev > RUN LOADING JOB load_co_context_edges_json USING jsonfile="$k1:/home/tigergraph/kafka_co_context_edges_topic_partition.conf"Try to list topic metadata from Kafka broker '192.168.5.60:9092', timeout: 3 sec ...
 [Tip: Use "CTRL + C" to stop displaying the loading status update, then use "SHOW LOADING STATUS jobid" to track the loading progress again]
 [Tip: Manage loading jobs with "ABORT/RESUME LOADING JOB jobid"]
 Starting the following job, i.e.
-  JobName: load_co_context_edges_json, jobid: MyGraph.load_co_context_edges_json.kafka.k1.1.1585205329349
-  Loading log: '/home/tigergraph/tigergraph/logs/restpp/restpp_kafka_loader_logs/MyGraph/MyGraph.load_co_context_edges_json.kafka.k1.1.1585205329349.log'
+  JobName: load_co_context_edges_json, jobid: MyGraph.load_co_context_edges_json.kafka.k1.1.1585207057408
+  Loading log: '/home/tigergraph/tigergraph/logs/restpp/restpp_kafka_loader_logs/MyGraph/MyGraph.load_co_context_edges_json.kafka.k1.1.1585207057408.log'
 
-Job "MyGraph.load_co_context_edges_json.kafka.k1.1.1585205329349" loading status
+Job "MyGraph.load_co_context_edges_json.kafka.k1.1.1585207057408" loading status
 [RUNNING] m1 ( Total: 1 )
   +---------------------------------------------------------------------------------+
   |   TOPIC PARTITION |   LOADED MESSAGES |   AVG SPEED |   DURATION |   LOADED SIZE|
-  |co-context-edges:0 |                 0 |       0 l/s |     0.00 s |       0.00 KB|
+  |co-context-edges:0 |            149600 |     51 kl/s |     2.90 s |       2.94 MB|
   +---------------------------------------------------------------------------------+
-```
-
-此时 `load_co_context_edges_json` 这个 job 会保持在后台运行，如果有新的边往`co-context-edges` 这个 topic 里面推送，可以观察到统计信息发生变化。
-
-```bash
 Job "MyGraph.load_co_context_edges_json.kafka.k1.1.1585205329349" loading status
-[RUNNING] m1 ( Total: 1 )
-  +---------------------------------------------------------------------------------+
-  |   TOPIC PARTITION |   LOADED MESSAGES |   AVG SPEED |   DURATION |   LOADED SIZE|
-  |co-context-edges:0 |              2610 |      19 l/s |   134.44 s |      52.63 KB|
-  +---------------------------------------------------------------------------------+
 ```
 
-Job 后面跟着的是 `jobid` ，可以看到从 job 开始起，一共消费了 2610 条消息。
+Job 后面跟着的是 `jobid` ，可以看到从 job 开始起，一共消费了 149600 条消息，平均每秒消费 5 万条消息，这速度还是挺惊人的。
 
 后续可以通过这个 `jobid` 查看最新的运行情况。
 
@@ -152,11 +141,11 @@ Job 后面跟着的是 `jobid` ，可以看到从 job 开始起，一共消费�
 $ gsql -g MyGraph "SHOW LOADING STATUS MyGraph.load_co_context_edges_json.kafka.k1.1.1585205329349"
 Connecting to 192.168.5.60
 If there is any relative path, it is relative to tigergraph/dev/gdk/gsql
-Job "MyGraph.load_co_context_edges_json.kafka.k1.1.1585205329349" loading status
+Job "MyGraph.load_co_context_edges_json.kafka.k1.1.1585207057408" loading status
 [RUNNING] m1 ( Total: 1 )
   +---------------------------------------------------------------------------------+
   |   TOPIC PARTITION |   LOADED MESSAGES |   AVG SPEED |   DURATION |   LOADED SIZE|
-  |co-context-edges:0 |              2610 |      19 l/s |   134.44 s |      52.63 KB|
+  |co-context-edges:0 |            149600 |     51 kl/s |     2.90 s |       2.94 MB|
   +---------------------------------------------------------------------------------+
 ```
 
