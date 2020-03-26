@@ -38,7 +38,88 @@ u4(cc_size=4, cc_update_time=0)
 
 另一种常见的思路，是将计算与查询分开。在后台常驻一个进程，用来负责循环更新全图所有节点的 CC 信息，查询则只负责返回缓存结果。
 
+{% code title="update\_cc\_size\_in\_batch.gsql" %}
+```sql
+CREATE QUERY update_cc_size_in_batch(
+  INT batch_size,
+  DATETIME start_date_time,
+  DATETIME end_date_time
+) FOR GRAPH MyGraph {
 
+  OrAccum<BOOL> @visited;
+  MapAccum<VERTEX, BOOL> @@updated;
+  MaxAccum<DATETIME> @cc_update_time;
+  SetAccum<VERTEX> @@batch_accounts;
+  MinAccum<DATETIME> @@last_update_time;
+
+  INT num_cc_updated = 0;
+  
+  /*
+  按照 cc 上一次更新时间排序，从距离当前时间最早的账号中
+  抽样出一批种子账号
+  */
+  all_accounts = {Account.*};
+  samples =
+    SELECT t
+    FROM all_accounts:t
+    ORDER BY t.cc_update_time ASC
+    LIMIT batch_size
+  ;
+  /*
+  将这些账号加入到一个 SetAccum 中
+  */
+  samples =
+    SELECT t
+    FROM samples:t
+    POST-ACCUM 
+      @@batch_accounts += t,
+      @@updated += (t -> FALSE),
+      @@last_update_time += t.cc_update_time
+  ;
+  
+  /* Update cc_size for every vertices introduced by the batch accounts */
+  
+  FOREACH seed_account IN @@batch_accounts DO
+    /* 
+      If the seed_account has been updated in the previous iteration,
+      skip to update it.
+    */
+    IF @@updated.get(seed_account) == TRUE THEN
+      CONTINUE;
+    END;
+    
+    /* Do traversing from the seed account */
+    seed = {seed_account};
+    comp_vs = seed;
+    WHILE seed.size() > 0 DO
+      seed =
+        SELECT t
+        FROM seed -(co_ip:e)-> Account:t
+        WHERE 
+          (t.@visited == FALSE) AND
+          (e.create_time BETWEEN start_dt AND end_dt)
+        POST-ACCUM 
+          t.@visited += TRUE,
+          @@updated += (t -> TRUE)
+      ;
+      comp_vs = comp_vs UNION seed;
+    END;
+  
+    /* Update cc_size info */
+    UPDATE s FROM comp_vs:s
+    SET s.cc_size = comp_vs.size(), 
+        s.cc_update_time = now()
+    ;
+    num_cc_updated = num_cc_updated + 1;
+  END;
+  
+  PRINT num_cc_updated, 
+        @@last_update_time AS last_update_time,
+        now() AS current_time
+  ;
+}
+```
+{% endcode %}
 
 
 
