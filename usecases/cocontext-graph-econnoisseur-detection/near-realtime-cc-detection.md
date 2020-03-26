@@ -126,6 +126,10 @@ CREATE QUERY update_cc_size_in_batch_v2(
 
 最后我们将打印出本轮更新涉及到的 CC 数量，节点数量，以及本轮更新之前，该批次节点中，"最早的 CC 更新时间"，以及 TigerGraph 系统当前时间。如果"最早的CC更新时间"与当前时间差异很小，说明数据库中所有节点的 `cc_size` 信息，都很新鲜，此时可以考虑降低该Query的调用频次，如果差异很大，则可以立马继续调用该 Query。
 
+{% hint style="info" %}
+注意到 query 中有两个参数，start\_date\_time 与 end\_date\_time，这两个参数用来筛选出在这个时间区间内创建的边，这样可以避免一个 CC 无限增长下去。
+{% endhint %}
+
 ### 查询节点信息
 
 由于我们之前将查询与计算做了分离，计算的结果已经存放到了节点的属性中，因此我们可以直接使用 TigerGraph 的接口，查询一个节点的 `cc_size` 。
