@@ -52,9 +52,9 @@
 如果以60秒为时间窗口大小，构建 `co_ip` 边，则应该产出如下边数据:
 
 ```javascript
-{"src_node": "u1", "tgt_node": "u2", "edge_type": "co_ip", "edge_attrs": {"create_time": 1583024431, "time_diff": 30}}
-{"src_node": "u2", "tgt_node": "u3", "edge_type": "co_ip", "edge_attrs": {"create_time": 1583024435, "time_diff": 4}}
-{"src_node": "u4", "tgt_node": "u5", "edge_type": "co_ip", "edge_attrs": {"create_time": 1583035241, "time_diff": 40}}
+{"src_node": "u1", "tgt_node": "u2", "edge_type": "co_ip", "edge_attrs": {"context", "1.1.1.1", "create_time": 1583024431, "time_diff": 30}}
+{"src_node": "u2", "tgt_node": "u3", "edge_type": "co_ip", "edge_attrs": {"context", "1.1.1.1", "create_time": 1583024435, "time_diff": 4}}
+{"src_node": "u4", "tgt_node": "u5", "edge_type": "co_ip", "edge_attrs": {"context", "1.1.1.1", "create_time": 1583035241, "time_diff": 40}}
 ```
 
 以下给了一个具体的 Python 实现方法，这是一种处理流式数据的方法:
