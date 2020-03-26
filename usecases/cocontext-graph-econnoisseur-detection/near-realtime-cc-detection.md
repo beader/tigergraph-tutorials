@@ -38,88 +38,120 @@ u4(cc_size=4, cc_update_time=0)
 
 另一种常见的思路，是将计算与查询分开。在后台常驻一个进程，用来负责循环更新全图所有节点的 CC 信息，查询则只负责返回缓存结果。
 
+该 query 每次选取上次更新时间距离当前时间最远的一批节点，然后使用 FOREACH，每次从中挑选 1 个节点，更新这个节点以及该节点所在 CC 的其他节点的 `cc_size` 。详细可以查看如下代码以及注释。
+
 {% code title="update\_cc\_size\_in\_batch.gsql" %}
 ```sql
-CREATE QUERY update_cc_size_in_batch(
-  INT batch_size,
+CREATE QUERY update_cc_size_in_batch_v2(
+  INT batch_size=100,
   DATETIME start_date_time,
   DATETIME end_date_time
 ) FOR GRAPH MyGraph {
-
   OrAccum<BOOL> @visited;
-  MapAccum<VERTEX, BOOL> @@updated;
   MaxAccum<DATETIME> @cc_update_time;
+  
+  MapAccum<VERTEX, BOOL> @@vertex_update_status;
   SetAccum<VERTEX> @@batch_accounts;
   MinAccum<DATETIME> @@last_update_time;
-
-  INT num_cc_updated = 0;
   
-  /*
-  按照 cc 上一次更新时间排序，从距离当前时间最早的账号中
-  抽样出一批种子账号
-  */
+  INT num_cc_updated = 0;
+  INT num_vertices_updated = 0;
+  
   all_accounts = {Account.*};
+  /*
+  按照 cc_update_time 排序，选取 cc 信息“最老”的一批节点
+  */
   samples =
     SELECT t
     FROM all_accounts:t
     ORDER BY t.cc_update_time ASC
     LIMIT batch_size
   ;
-  /*
-  将这些账号加入到一个 SetAccum 中
-  */
+  
   samples =
     SELECT t
     FROM samples:t
-    POST-ACCUM 
+    POST-ACCUM
+      @@vertex_update_status += (t -> FALSE),
       @@batch_accounts += t,
-      @@updated += (t -> FALSE),
       @@last_update_time += t.cc_update_time
   ;
   
-  /* Update cc_size for every vertices introduced by the batch accounts */
-  
-  FOREACH seed_account IN @@batch_accounts DO
-    /* 
-      If the seed_account has been updated in the previous iteration,
-      skip to update it.
+  /*
+  每次从 1 个节点出发，找到这个节点所在 CC 的所有节点，将 cc_size
+  信息更新到每个节点中
+  */
+  FOREACH account IN @@batch_accounts DO
+    /*
+    如果当前账号和前面循环中更新的任何一个账号属于同一个 cc，
+    那么这个账号无须再更新
     */
-    IF @@updated.get(seed_account) == TRUE THEN
+    IF @@vertex_update_status.get(account) == TRUE THEN
       CONTINUE;
     END;
-    
-    /* Do traversing from the seed account */
-    seed = {seed_account};
+  
+    seed = {account};
     comp_vs = seed;
     WHILE seed.size() > 0 DO
       seed =
         SELECT t
         FROM seed -(co_ip:e)-> Account:t
-        WHERE 
+        WHERE
           (t.@visited == FALSE) AND
-          (e.create_time BETWEEN start_dt AND end_dt)
-        POST-ACCUM 
-          t.@visited += TRUE,
-          @@updated += (t -> TRUE)
-      ;
+          (e.create_time BETWEEN start_date_time AND end_date_time)
+        POST-ACCUM
+          t.@visited = TRUE,
+          @@vertex_update_status += (t -> TRUE)
+        ;
       comp_vs = comp_vs UNION seed;
     END;
   
-    /* Update cc_size info */
     UPDATE s FROM comp_vs:s
     SET s.cc_size = comp_vs.size(), 
         s.cc_update_time = now()
     ;
+  
     num_cc_updated = num_cc_updated + 1;
+    num_vertices_updated = num_vertices_updated + comp_vs.size();
   END;
   
-  PRINT num_cc_updated, 
+  PRINT num_cc_updated,
+        num_vertices_updated,
         @@last_update_time AS last_update_time,
         now() AS current_time
   ;
 }
 ```
 {% endcode %}
+
+最后我们将打印出本轮更新涉及到的 CC 数量，节点数量，以及本轮更新之前，该批次节点中，"最早的 CC 更新时间"，以及 TigerGraph 系统当前时间。如果"最早的CC更新时间"与当前时间差异很小，说明数据库中所有节点的 `cc_size` 信息，都很新鲜，此时可以考虑降低该Query的调用频次，如果差异很大，则可以立马继续调用该 Query。
+
+### 查询节点信息
+
+由于我们之前将查询与计算做了分离，计算的结果已经存放到了节点的属性中，因此我们可以直接使用 TigerGraph 的接口，查询一个节点的 `cc_size` 。
+
+```bash
+curl -X GET "http://localhost:9000/graph/MyGraph/vertices/Account/13600000000"
+{
+  "version": {
+    "edition": "developer",
+    "api": "v2",
+    "schema": 0
+  },
+  "error": false,
+  "message": "",
+  "results": [
+    {
+      "v_id": "13600000000",
+      "v_type": "Account",
+      "attributes": {
+        "cc_size": 20,
+        "cc_update_time": "2020-03-01 00:00:00"
+      }
+    }
+  ]
+}
+```
 
 
 
