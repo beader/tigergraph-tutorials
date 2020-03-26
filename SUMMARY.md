@@ -28,4 +28,5 @@
   * [创建 Schema](usecases/cocontext-graph-econnoisseur-detection/schema.md)
   * [ETL Pipeline](usecases/cocontext-graph-econnoisseur-detection/etl-pipeline.md)
   * [数据加载](usecases/cocontext-graph-econnoisseur-detection/data-loading-jobs.md)
+  * [近实时团伙检测](usecases/cocontext-graph-econnoisseur-detection/near-realtime-cc-detection.md)
 
