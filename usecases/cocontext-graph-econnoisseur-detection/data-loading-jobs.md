@@ -83,7 +83,7 @@ $ gsql -g MyGraph co_context_edges_loader.gsql
 将该配置文件放置在 TigerGraph 所在服务器的 `/home/tigergraph` 目录下，进入 GSQL 客户端:
 
 ```bash
-GSQL-Dev > CREATE DATA_SOURCE KAFKA k1 = "/path/to/kafka.config" FOR GRAPH MyGraph
+GSQL-Dev > CREATE DATA_SOURCE KAFKA k1 = "/home/tigergraph/kafka.config" FOR GRAPH MyGraph
 ```
 
 上述命令定义里一个名为 `k1` 的 DATA\_SOURCE
