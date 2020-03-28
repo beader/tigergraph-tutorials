@@ -4,8 +4,6 @@
 
 下载地址: [https://www.tigergraph.com/download/](https://www.tigergraph.com/download/)
 
-如果只是体验的话，可以下载 Developer Edition，可以体验到绝大多数功能
-
 ### Linux 系统安装 TigerGraph
 
 ```bash

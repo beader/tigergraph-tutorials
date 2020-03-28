@@ -322,10 +322,10 @@ ACCUM 和 POST-ACCUM 区别在于，ACCUM 是针对所有满足 FROM + WHERE 的
 针对上面这张图 \(忽略掉数据库中其他节点\)，`seed = { searchme.com, peiqianfeng }`。从 `seed` 出发的边有:
 
 ```text
-searchme.com -> peiqianfeng
-searchme.com -> takeyourdata@126.com
-peiqianfeng  -> searchme.com
-peiqianfeng  -> takeyourdata@126.com
+searchme.com -(domain_admin)-> peiqianfeng
+searchme.com -(domain_email)-> takeyourdata@126.com
+peiqianfeng  -(reverse_domain_admin)-> searchme.com
+peiqianfeng  -(admin_email)> takeyourdata@126.com
 ```
 
 所以 ACCUM 会执行四次，其中`takeyourdata@126.com` 的 `@accum_cnt` 会被加2次。因为 SELECT 语句中选择的是 `tgt`，即每条边的终点，所以最终结果去重后是

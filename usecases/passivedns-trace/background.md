@@ -33,7 +33,7 @@ rightmove.co.uk    20151001    {"audit_update_date":"2015-07-18 00:00:00 UTC","c
 ```
 {% endcode %}
 
-`domainIpHistory.txt` 为 DNS 解析日志，有 3 个字段，分别为 `域名`、`日期`、`IP`，其中 `IP` 字段为一个列表，表示当前日期该域名解析到多个域名。
+`domainIpHistory.txt` 为 DNS 解析日志，有 3 个字段，分别为 `域名`、`日期`、`IP`，其中 `IP` 字段为一个列表，表示当前日期该域名解析到多个 `IP`。
 
 `domainWhoisHistory.txt` 为 WHOIS 记录，有 3 个字段，分别为 `域名`、`日期`、`whois`，其中 `whois` 字段为一个字典，里面包含了当前日期该域名的 whois 登记信息。
 

@@ -108,7 +108,7 @@ GSQL-Dev > CREATE DATA_SOURCE KAFKA k1 = "/home/tigergraph/kafka.config" FOR GRA
 ```
 {% endcode %}
 
-上面 `start_offset = -1` 表示，从这个队列中最新的数据开始消费，`start_offset = -1` 表示，从这个队列中第一条消息开始消费。
+上面 `start_offset = -1` 表示，从这个队列中最新的数据开始消费，`start_offset = -2` 表示，从这个队列中第一条消息开始消费。
 
 ### 执行 Loading Job
 

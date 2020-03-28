@@ -43,7 +43,7 @@ $ docker cp domain_whois.csv tigergraph:/home/tigergraph/tigergraph/loadingData/
 
 ![Data Filter](../../.gitbook/assets/screen-shot-2020-02-28-at-2.33.26-pm.png)
 
-此时会出现一个图像化的规则编辑器，如上图所示，如果 **domain** 字段或 **admin\_name** 字段出现了控制，那么这一行的数据将被忽略。这里 $0 与 $1 代表了列编号。完成了数据过滤之后，按照前面的方法，将 Columns 和 Edge 进行关联。
+此时会出现一个图像化的规则编辑器，如上图所示，如果 **domain** 字段或 **admin\_name** 字段出现了空值，那么这一行的数据将被忽略。这里 $0 与 $1 代表了列编号。完成了数据过滤之后，按照前面的方法，将 Columns 和 Edge 进行关联。
 
 ![Map Columns to Edge](../../.gitbook/assets/screen-shot-2020-02-28-at-2.39.24-pm.png)
 
