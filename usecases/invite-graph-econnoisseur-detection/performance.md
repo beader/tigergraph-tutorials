@@ -27,9 +27,9 @@
 
 前面利用基尼系数来衡量黑产团伙的机器行为，实际上还有个重要的因素可以考虑进来，就是注册的时间顺序。下面用来个 gif 动图来呈现:
 
-![&#x6B63;&#x5E38;&#x7FA4;&#x4F53;&#x7684;&#x9080;&#x8BF7;&#x6CE8;&#x518C;&#x987A;&#x5E8F;](../../.gitbook/assets/invite_graph.gif)
+![](../../.gitbook/assets/invite_graph%20%281%29.gif)
 
-![&#x9ED1;&#x4EA7;&#x56E2;&#x4F19;&#x7684;&#x9080;&#x8BF7;&#x6CE8;&#x518C;&#x987A;&#x5E8F;](../../.gitbook/assets/econnoisseur_invite_graph.gif)
+![](../../.gitbook/assets/econnoisseur_invite_graph%20%281%29.gif)
 
 大家也可以思考一下，黑产采取这种策略的动机是什么？
 

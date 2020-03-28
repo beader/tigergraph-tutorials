@@ -37,6 +37,10 @@ CREATE QUERY k_step_neighbors(VERTEX d, int k_step) FOR GRAPH MyGraph {
 
 观察结果，可以发现，当遍历到一些超级节点 \( 该节点的 degree 很大 \) 时，返回的结果过多，当 `k=2` 时，结果的数量已经令人头大了。
 
+{% hint style="info" %}
+注: 实际上这里我们应该定义一个 SetAccum&lt;VERTEX&gt; @@neighbors 来存放邻居，并在每一步遍历的时候使用 POST-ACCUM @@neighbors += nb 将 k 步邻居放入 @@neighbors 中。但为了方便直接在 GraphStudio 中做可视化，改成了将边存放到结果中。这样得到的结果会和预想的略有不同，大家也可以思考一下。
+{% endhint %}
+
 ### 查询 k 步邻居，对 Vertex Degree 进行限制
 
 {% tabs %}
