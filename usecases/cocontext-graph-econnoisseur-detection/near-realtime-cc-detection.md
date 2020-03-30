@@ -148,8 +148,12 @@ CREATE QUERY update_cc_size_in_batch_v2(
 
 参考 TigerGraph GitHub 上的算法例子，下面在提供一个并行化的，一个 Query 进行全图更新的方法
 
+{% code title="update\_cc\_size\_whole\_graph.gsql" %}
 ```sql
-CREATE QUERY update_cc_size_whole_graph() FOR GRAPH MyGraph { 
+CREATE QUERY update_cc_size_whole_graph(
+  DATETIME start_date_time,
+  DATETIME end_date_time
+) FOR GRAPH MyGraph { 
   MinAccum<INT> @cc_id = 0;
   MinAccum<INT> @old_id = 0;
   OrAccum<BOOL> @active;
@@ -159,8 +163,7 @@ CREATE QUERY update_cc_size_whole_graph() FOR GRAPH MyGraph {
   start =
     SELECT s
     FROM all_accounts:s
-    POST-ACCUM
-      // getvid 可以拿到该节点在数据库中的内部 id
+    POST-ACCUM 
       s.@cc_id = getvid(s),
       s.@old_id = getvid(s)
   ;
@@ -168,7 +171,8 @@ CREATE QUERY update_cc_size_whole_graph() FOR GRAPH MyGraph {
   WHILE start.size() > 0 DO
     start = 
       SELECT t
-      FROM start:s -(co_ip)-> Account:t
+      FROM start:s -(co_ip:e)-> Account:t
+      WHERE (e.create_time BETWEEN start_date_time AND end_date_time)
       ACCUM t.@cc_id += s.@cc_id
       POST-ACCUM
         CASE
@@ -202,10 +206,11 @@ CREATE QUERY update_cc_size_whole_graph() FOR GRAPH MyGraph {
   ;
 }
 ```
+{% endcode %}
 
 这种方法从**全图所有的节点**同时出发，通知自己的邻居，自己的 `vid` 是多少，每个节点对比自己的 `vid` 和邻居的 `vid`，将较小的 `vid` 设置为自己的 `cc_id`，然后进行下一次迭代。每次迭代之后，只保留在本轮迭代中，更新过 `cc_id` 的节点，直到全图所有节点的 `cc_id` 都不再变化，则算法结束。
 
-在相同的机器上，借助 TigerGraph 很好的并行性能，全图更新的算法效率更高，对比 batch 更新方法，速度提升了 3 倍。
+在相同的机器上，借助 TigerGraph 很好的并行性能，全图更新的算法效率更高，速度大约是 batch 更新方法的 3 倍。
 
 ### 查询节点信息
 
